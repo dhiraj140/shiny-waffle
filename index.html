@@ -1,99 +1,595 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Staff · Event Ticket Printing System</title>
-    <!-- open-source libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- professional desktop styles -->
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=2.0, user-scalable=yes">
+  <title>Event Ticket Printer · Staff</title>
+  <!-- Google Fonts: Inter + Playfair Display -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <!-- QRCode.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- html2pdf.js (with known canvas limit warning) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    /* ----- CUSTOM TICKET STYLES (print & preview) ----- */
+    .ticket-print {
+      width: 70mm;          /* fits 3 per row on A4 with 5mm margins */
+      height: 42mm;        /* 48mm scaled to 70mm width (aspect ratio 70/80) */
+      background: linear-gradient(145deg, #ffffff 0%, #f3f4f6 100%);
+      border: 1px solid #1e3a8a;
+      border-radius: 3mm 0 3mm 0;  /* subtle modern touch */
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      padding: 3mm 4mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      font-family: 'Inter', sans-serif;
+      color: #111827;
+      position: relative;
+      box-sizing: border-box;
+    }
+    .ticket-print .event-name {
+      font-size: 8px;
+      letter-spacing: 0.5px;
+      color: #4b5563;
+      text-transform: uppercase;
+    }
+    .ticket-print .ticket-type {
+      font-size: 18px;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+    .ticket-print .final-price {
+      font-size: 24px;
+      font-weight: 900;
+      color: #2563eb;      /* blue – prints dark */
+    }
+    .ticket-print .discount-line {
+      font-size: 7px;
+      color: #b91c1c;
+      text-align: right;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    .ticket-print .venue-date {
+      font-size: 8px;
+      color: #374151;
+      margin: 3px 0 2px;
+      font-weight: 500;
+    }
+    .ticket-print .id {
+      font-size: 7px;
+      color: #6b7280;
+      font-family: monospace;
+    }
+    .ticket-print .serial {
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      color: #0f172a;
+      text-align: center;
+      flex: 1;
+    }
+    .ticket-print .qr {
+      width: 56px;
+      height: 56px;
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .qr img, .qr canvas {
+      width: 56px !important;
+      height: 56px !important;
+    }
+    .cut-dashed {
+      border-top: 2px dashed #3b82f6;
+      margin: 3px 0 2px;
+    }
+    .red-strip {
+      background: #b91c1c;
+      color: white;
+      font-size: 7px;
+      font-weight: 800;
+      text-align: center;
+      padding: 2px 0;
+      letter-spacing: 0.8px;
+      border-radius: 0 0 2mm 0;
+    }
+
+    /* ----- PREVIEW SCALING (90%) ----- */
+    .preview-wrapper {
+      width: 63mm;        /* 70 * 0.9 */
+      height: 37.8mm;    /* 42 * 0.9 */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto;
+    }
+    .preview-wrapper .ticket-print {
+      transform: scale(0.9);
+      transform-origin: top left;
+      width: 70mm;
+      height: 42mm;
+      flex-shrink: 0;
+    }
+
+    /* ----- PRINT OPTIMISATION (A4, 3 per row, tight margins) ----- */
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #printable, #printable * {
+        visibility: visible;
+      }
+      #printable {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: white;
+        padding: 5mm 5mm 5mm 5mm;
+        box-sizing: border-box;
+      }
+      .printable-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 70mm);
+        gap: 4mm;
+        justify-content: center;
+      }
+      .ticket-print {
+        box-shadow: none;
+        border: 1px solid black;
+        background: white;
+        break-inside: avoid;
+      }
+      .red-strip {
+        background: black !important;
+        color: white !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .final-price {
+        color: black !important;
+        font-weight: 900;
+      }
+    }
+
+    /* ----- OFF-SCREEN PRINTABLE (hidden by default) ----- */
+    .printable-offscreen {
+      position: absolute;
+      left: -9999px;
+      top: 0;
+    }
+
+    /* ----- DARK THEME SIDEBAR & MAIN (Tailwind overrides) ----- */
+    body {
+      background: #09090b;
+      color: #e4e4e7;
+    }
+    .sidebar-card {
+      background: #18181b;
+      border: 1px solid #3f3f46;
+      border-radius: 1rem;
+    }
+    .input-dark {
+      background: #27272a;
+      border: 1px solid #52525b;
+      color: white;
+      border-radius: 0.5rem;
+      padding: 0.5rem 0.75rem;
+    }
+    .badge-blue {
+      background: #1e3a8a;
+      color: white;
+      font-weight: 600;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+    }
+  </style>
 </head>
-<body>
-    <main class="staff-panel">
-        <header>
-            <h1>🎟️ EVENT COUNTER · TICKET STATION</h1>
-            <p class="subhead">staff use only — instant print & PDF</p>
-        </header>
+<body class="font-['Inter'] antialiased">
 
-        <!-- CONTROLS (hidden during print) -->
-        <div class="controls no-print">
-            <div class="form-row">
-                <div class="field-group">
-                    <label for="ticketType">🎫 Ticket type</label>
-                    <select id="ticketType" class="input-select">
-                        <option value="PRIME" data-price="15000">PRIME — ₹15,000</option>
-                        <option value="PLUS" data-price="11000">PLUS — ₹11,000</option>
-                        <option value="ECONO" data-price="2500">ECONO — ₹2,500</option>
-                    </select>
-                </div>
-                <div class="field-group">
-                    <label for="basePrice">💰 Base price (₹)</label>
-                    <input type="text" id="basePrice" readonly class="input-readonly" value="15000">
-                </div>
-                <div class="field-group">
-                    <label for="quantity">🔢 Quantity</label>
-                    <select id="quantity" class="input-select">
-                        <option value="1">1</option>
-                        <option value="2">2</option>
-                        <option value="3">3</option>
-                        <option value="4">4</option>
-                        <option value="5">5</option>
-                        <option value="10">10</option>
-                        <option value="20">20</option>
-                    </select>
-                </div>
-            </div>
+  <!-- DESKTOP LAYOUT: SIDEBAR (w-96) + MAIN CONTENT -->
+  <div class="flex flex-col md:flex-row min-h-screen">
 
-            <div class="form-row discount-row">
-                <div class="field-group">
-                    <label for="discountType">🏷️ Discount type</label>
-                    <select id="discountType" class="input-select">
-                        <option value="none" selected>No discount</option>
-                        <option value="flat">Flat Amount (₹)</option>
-                        <option value="percent">Percentage (%)</option>
-                    </select>
-                </div>
-                <div class="field-group">
-                    <label for="discountValue">🎁 Discount value</label>
-                    <input type="number" id="discountValue" class="input-text" value="0" min="0" step="1" disabled>
-                </div>
-                <div class="field-group">
-                    <label>&nbsp;</label>
-                    <button id="generateBtn" class="btn-primary">⚡ GENERATE TICKETS</button>
-                </div>
-            </div>
+    <!-- ========== LEFT SIDEBAR (w-96) ========== -->
+    <aside class="w-full md:w-96 p-5 bg-zinc-950 border-r border-zinc-800 flex flex-col gap-5">
+      <!-- Logo / Title -->
+      <div class="flex items-center gap-3 mb-2">
+        <i class="fas fa-ticket-alt text-3xl text-emerald-400"></i>
+        <h1 class="font-['Playfair_Display'] text-3xl font-black text-white tracking-tight">TICKET<span class="text-emerald-400">.PRO</span></h1>
+      </div>
+      <p class="text-xs text-zinc-400 -mt-2">Event counter · desktop printer</p>
+
+      <!-- 1. TICKET TYPE SELECTION -->
+      <div class="sidebar-card p-5 space-y-4">
+        <h2 class="font-['Playfair_Display'] text-xl font-bold text-white flex items-center gap-2"><i class="fas fa-tag text-blue-400"></i> Ticket type</h2>
+        <div class="flex flex-wrap gap-2">
+          <button id="typePrime" class="type-btn bg-zinc-800 hover:bg-zinc-700 px-4 py-3 rounded-xl flex-1 text-left transition" data-type="PRIME" data-price="15000">
+            <span class="block font-bold text-white">PRIME</span>
+            <span class="text-sm text-zinc-400">₹15,000</span>
+          </button>
+          <button id="typePlus" class="type-btn bg-zinc-800 hover:bg-zinc-700 px-4 py-3 rounded-xl flex-1 text-left transition" data-type="PLUS" data-price="11000">
+            <span class="block font-bold text-white">PLUS</span>
+            <span class="text-sm text-zinc-400">₹11,000</span>
+          </button>
+          <button id="typeEcono" class="type-btn bg-zinc-800 hover:bg-zinc-700 px-4 py-3 rounded-xl flex-1 text-left transition" data-type="ECONO" data-price="2500">
+            <span class="block font-bold text-white">ECONO</span>
+            <span class="text-sm text-zinc-400">₹2,500</span>
+          </button>
         </div>
+        <!-- active badge -->
+        <div id="ticketBadge" class="badge-blue inline-block">PRIME selected</div>
+      </div>
 
-        <!-- PRICE SUMMARY (live update) -->
-        <div class="summary-card no-print">
-            <h3>🧾 ORDER SUMMARY</h3>
-            <div class="summary-grid">
-                <span>Ticket type:</span><span id="summaryType">PRIME</span>
-                <span>Base price:</span><span id="summaryBase">₹15,000</span>
-                <span>Quantity:</span><span id="summaryQty">1</span>
-                <span>Subtotal:</span><span id="summarySubtotal">₹15,000</span>
-                <span>Discount:</span><span id="summaryDiscount">₹0</span>
-                <span class="total-label">FINAL PAYABLE:</span><span id="summaryFinal" class="total-amount">₹15,000</span>
-            </div>
+      <!-- 2. QUANTITY -->
+      <div class="sidebar-card p-5 space-y-3">
+        <h2 class="font-['Playfair_Display'] text-xl font-bold text-white flex items-center gap-2"><i class="fas fa-layer-group text-blue-400"></i> Quantity</h2>
+        <div class="flex flex-wrap gap-2">
+          <button class="qty-btn bg-zinc-800 hover:bg-zinc-600 px-4 py-2 rounded-lg" data-qty="1">1</button>
+          <button class="qty-btn bg-zinc-800 hover:bg-zinc-600 px-4 py-2 rounded-lg" data-qty="2">2</button>
+          <button class="qty-btn bg-zinc-800 hover:bg-zinc-600 px-4 py-2 rounded-lg" data-qty="3">3</button>
+          <button class="qty-btn bg-zinc-800 hover:bg-zinc-600 px-4 py-2 rounded-lg" data-qty="4">4</button>
+          <button class="qty-btn bg-zinc-800 hover:bg-zinc-600 px-4 py-2 rounded-lg" data-qty="5">5</button>
+          <button class="qty-btn bg-zinc-800 hover:bg-zinc-600 px-4 py-2 rounded-lg" data-qty="10">10</button>
+          <button class="qty-btn bg-zinc-800 hover:bg-zinc-600 px-4 py-2 rounded-lg" data-qty="20">20</button>
         </div>
+        <span class="text-sm text-zinc-400">Current: <span id="qtyDisplay">1</span></span>
+      </div>
 
-        <!-- ACTION BUTTONS (print / pdf) -->
-        <div class="action-bar no-print">
-            <button id="printBtn" class="btn-print">🖨️ PRINT ALL TICKETS</button>
-            <button id="pdfBtn" class="btn-pdf">📄 SAVE AS PDF (ALL-IN-ONE)</button>
-            <button id="clearBtn" class="btn-clear">🗑️ CLEAR TICKETS</button>
+      <!-- 3. DISCOUNT SYSTEM -->
+      <div class="sidebar-card p-5 space-y-4">
+        <h2 class="font-['Playfair_Display'] text-xl font-bold text-white flex items-center gap-2"><i class="fas fa-percent text-emerald-400"></i> Discount</h2>
+        <div class="flex gap-3">
+          <select id="discountType" class="input-dark w-1/2">
+            <option value="none" selected>No Discount</option>
+            <option value="flat">Flat Amount (₹)</option>
+            <option value="percent">Percentage (%)</option>
+          </select>
+          <input type="number" id="discountValue" class="input-dark w-1/2" placeholder="Value" min="0" value="0" step="1" disabled>
         </div>
+      </div>
 
-        <!-- TICKETS CONTAINER → injected dynamically -->
-        <div id="ticketsContainer" class="tickets-container"></div>
+      <!-- 4. LIVE SUMMARY (with large final) -->
+      <div class="sidebar-card p-5 bg-zinc-900 border border-blue-900/50">
+        <h2 class="font-['Playfair_Display'] text-xl font-bold text-white mb-3">🧾 Summary</h2>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between"><span>Ticket:</span> <span id="summaryType" class="font-semibold">PRIME</span></div>
+          <div class="flex justify-between"><span>Base price:</span> <span id="summaryBase">₹15,000</span></div>
+          <div class="flex justify-between"><span>Quantity:</span> <span id="summaryQty">1</span></div>
+          <div class="flex justify-between border-t border-zinc-700 pt-2 mt-1"><span>Subtotal:</span> <span id="subtotal">₹15,000</span></div>
+          <div class="flex justify-between text-amber-400"><span>Discount:</span> <span id="discountAmount">-₹0</span></div>
+          <div class="flex justify-between text-lg font-black mt-1"><span>FINAL:</span> <span id="finalPayable" class="text-2xl text-blue-400">₹15,000</span></div>
+        </div>
+      </div>
 
-        <footer class="no-print">
-            <p class="footer-note">🔒 anti-copy ready · verify at <code>verify.html</code> · localStorage used</p>
-        </footer>
+      <!-- 5. EVENT CUSTOMISATION (editable) -->
+      <div class="sidebar-card p-5 space-y-3">
+        <h2 class="font-['Playfair_Display'] text-xl font-bold text-white flex items-center gap-2"><i class="fas fa-pen text-blue-400"></i> Event details</h2>
+        <input type="text" id="eventName" value="ANNUAL GALA" class="input-dark w-full" placeholder="Event name">
+        <input type="text" id="venue" value="GRAND HALL" class="input-dark w-full" placeholder="Venue">
+        <input type="date" id="eventDate" value="2025-12-31" class="input-dark w-full">
+      </div>
+
+      <!-- 6. ACTION BUTTONS & CLEAR SESSION -->
+      <div class="flex flex-col gap-3">
+        <button id="printBtn" class="bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-3 transition">
+          <i class="fas fa-print"></i> PRINT TICKETS (3/row)
+        </button>
+        <button id="pdfBtn" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-3 transition">
+          <i class="fas fa-file-pdf"></i> PDF (html2pdf)
+        </button>
+        <button id="clearSessionBtn" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 py-2 px-4 rounded-xl text-sm flex items-center justify-center gap-2">
+          <i class="fas fa-broom"></i> Clear session (reset counter)
+        </button>
+      </div>
+      <p class="text-[10px] text-zinc-600 text-center mt-2">* PDF >12 tickets may fail – use Print instead</p>
+    </aside>
+
+    <!-- ========== MAIN CONTENT (Preview & hidden printable) ========== -->
+    <main class="flex-1 p-6 bg-zinc-950">
+      <h2 class="font-['Playfair_Display'] text-2xl font-bold text-white mb-4 flex items-center gap-3">
+        <i class="fas fa-eye text-emerald-400"></i> Live preview (scaled 90%)
+      </h2>
+      <!-- Preview grid (4 columns desktop) -->
+      <div id="preview-container" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5 transition-all">
+        <!-- tickets will be injected here (wrapped in .preview-wrapper) -->
+      </div>
+
+      <!-- ===== HIDDEN PRINTABLE AREA (off‑screen) ===== -->
+      <div id="printable" class="printable-offscreen">
+        <div id="printable-tickets" class="printable-grid"></div>
+      </div>
     </main>
+  </div>
 
-    <script src="script.js"></script>
+  <script>
+    (function() {
+      "use strict";
+
+      // -------------------- STATE & CONSTANTS --------------------
+      const TICKET_TYPES = {
+        PRIME: 15000,
+        PLUS: 11000,
+        ECONO: 2500
+      };
+
+      // Current state
+      let currentType = 'PRIME';
+      let currentQty = 1;
+      let discountType = 'none';
+      let discountVal = 0;
+      let eventName = 'ANNUAL GALA';
+      let venue = 'GRAND HALL';
+      let eventDate = '2025-12-31';
+
+      // DOM elements
+      const typeBtns = document.querySelectorAll('.type-btn');
+      const qtyBtns = document.querySelectorAll('.qty-btn');
+      const discountTypeEl = document.getElementById('discountType');
+      const discountValueEl = document.getElementById('discountValue');
+      const eventNameEl = document.getElementById('eventName');
+      const venueEl = document.getElementById('venue');
+      const eventDateEl = document.getElementById('eventDate');
+      const ticketBadge = document.getElementById('ticketBadge');
+      const qtyDisplay = document.getElementById('qtyDisplay');
+      const summaryType = document.getElementById('summaryType');
+      const summaryBase = document.getElementById('summaryBase');
+      const summaryQty = document.getElementById('summaryQty');
+      const subtotalEl = document.getElementById('subtotal');
+      const discountAmountEl = document.getElementById('discountAmount');
+      const finalPayableEl = document.getElementById('finalPayable');
+      const previewContainer = document.getElementById('preview-container');
+      const printableTickets = document.getElementById('printable-tickets');
+      const printBtn = document.getElementById('printBtn');
+      const pdfBtn = document.getElementById('pdfBtn');
+      const clearSessionBtn = document.getElementById('clearSessionBtn');
+
+      // -------------------- LOCALSTORAGE: UNIQUE ID COUNTER --------------------
+      function getTodayStr() {
+        const d = new Date();
+        return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+      }
+
+      // Get next n sequential IDs, update localStorage counter
+      function generateTicketIDs(quantity) {
+        const today = getTodayStr();
+        const key = `ticketCounter_${today}`;
+        let counter = parseInt(localStorage.getItem(key) || '0', 10);
+        const ids = [];
+        for (let i = 0; i < quantity; i++) {
+          counter++;
+          const seq = String(counter).padStart(4, '0');
+          ids.push(`TCK${today}-${seq}`);
+        }
+        localStorage.setItem(key, counter);
+        return ids;
+      }
+
+      // Reset counter for today (for demo & clear session)
+      function resetTodayCounter() {
+        const today = getTodayStr();
+        localStorage.setItem(`ticketCounter_${today}`, '0');
+      }
+
+      // -------------------- DISCOUNT CALCULATION --------------------
+      function calculateDiscount(subtotal, type, val) {
+        if (type === 'none' || val <= 0) return 0;
+        if (type === 'flat') return Math.min(val, subtotal);
+        if (type === 'percent') return (subtotal * val) / 100;
+        return 0;
+      }
+
+      // -------------------- UPDATE UI SUMMARY --------------------
+      function updateSummary() {
+        const basePrice = TICKET_TYPES[currentType];
+        const subtotal = basePrice * currentQty;
+        const discount = calculateDiscount(subtotal, discountType, discountVal);
+        const final = subtotal - discount;
+
+        summaryType.textContent = currentType;
+        summaryBase.textContent = `₹${basePrice.toLocaleString()}`;
+        summaryQty.textContent = currentQty;
+        subtotalEl.textContent = `₹${subtotal.toLocaleString()}`;
+        discountAmountEl.textContent = `-₹${discount.toLocaleString()}`;
+        finalPayableEl.textContent = `₹${final.toLocaleString()}`;
+        qtyDisplay.textContent = currentQty;
+        ticketBadge.textContent = `${currentType} selected`;
+      }
+
+      // -------------------- GENERATE TICKETS (QR + HTML) --------------------
+      function renderTickets() {
+        // Clear previous
+        previewContainer.innerHTML = '';
+        printableTickets.innerHTML = '';
+
+        const basePrice = TICKET_TYPES[currentType];
+        const subtotal = basePrice * currentQty;
+        const discount = calculateDiscount(subtotal, discountType, discountVal);
+        const final = subtotal - discount; // not used per ticket, only display discount info
+
+        const ids = generateTicketIDs(currentQty);
+        const event = eventNameEl.value || 'EVENT';
+        const loc = venueEl.value || 'VENUE';
+        const date = eventDateEl.value || '2025-12-31';
+        const discountTypeText = discountType === 'flat' ? '₹' : discountType === 'percent' ? '%' : '';
+        const discountValue = discountVal || 0;
+
+        for (let i = 0; i < currentQty; i++) {
+          const ticketId = ids[i];
+          const serial = `${i+1}/${currentQty}`;
+
+          // ----- construct QR content -----
+          const qrContent = `EVENT=${event}|TYPE=${currentType}|ID=${ticketId}|PRICE=${basePrice}|TIME=${new Date().toISOString()}|QTY=${currentQty}|SERIAL=${serial}`;
+
+          // ----- create ticket element (print size) -----
+          const ticketDiv = document.createElement('div');
+          ticketDiv.className = 'ticket-print';
+
+          // inner HTML structure (careful with spacing)
+          ticketDiv.innerHTML = `
+            <div class="flex justify-between items-start">
+              <div>
+                <div class="event-name">${event}</div>
+                <div class="ticket-type">${currentType}</div>
+              </div>
+              <div class="final-price">₹${basePrice.toLocaleString()}</div>
+            </div>
+            <div class="discount-line">${discount > 0 ? `Disc: -${discountType === 'percent' ? discountValue+'%' : '₹'+discount}` : ''}</div>
+            <div class="venue-date">${loc} • ${date}</div>
+            <div class="flex justify-between items-end mt-1">
+              <div class="id">ID: ${ticketId}</div>
+              <div class="serial">${serial}</div>
+              <div class="qr"></div>
+            </div>
+            <div class="cut-dashed"></div>
+            <div class="red-strip">SINGLE ENTRY ONLY • DUPLICATES REJECTED</div>
+          `;
+
+          // ---- generate QR code inside .qr ----
+          const qrDiv = ticketDiv.querySelector('.qr');
+          try {
+            new QRCode(qrDiv, {
+              text: qrContent,
+              width: 56,
+              height: 56,
+              colorDark: "#000000",
+              colorLight: "#ffffff",
+              correctLevel: QRCode.CorrectLevel.M
+            });
+          } catch(e) {
+            qrDiv.textContent = 'QR error';
+          }
+
+          // ---- 1. append to PRINTABLE container (exact size) ----
+          printableTickets.appendChild(ticketDiv.cloneNode(true)); // clone to keep original for preview
+
+          // ---- 2. create PREVIEW wrapper (scaled 90%) ----
+          const previewWrapper = document.createElement('div');
+          previewWrapper.className = 'preview-wrapper';
+          const previewTicket = ticketDiv.cloneNode(true);
+          previewWrapper.appendChild(previewTicket);
+          previewContainer.appendChild(previewWrapper);
+        }
+      }
+
+      // -------------------- REFRESH ALL (summary + tickets) --------------------
+      function refreshAll() {
+        updateSummary();
+        renderTickets();
+      }
+
+      // -------------------- ATTACH EVENT LISTENERS --------------------
+      // 1. Ticket type buttons
+      typeBtns.forEach(btn => {
+        btn.addEventListener('click', function(e) {
+          const type = this.dataset.type;
+          const price = this.dataset.price;
+          currentType = type;
+          refreshAll();
+        });
+      });
+
+      // 2. Quantity buttons
+      qtyBtns.forEach(btn => {
+        btn.addEventListener('click', function(e) {
+          currentQty = parseInt(this.dataset.qty, 10);
+          refreshAll();
+        });
+      });
+
+      // 3. Discount
+      discountTypeEl.addEventListener('change', function(e) {
+        discountType = this.value;
+        discountValueEl.disabled = (discountType === 'none');
+        if (discountType === 'none') discountValueEl.value = 0;
+        discountVal = parseFloat(discountValueEl.value) || 0;
+        refreshAll();
+      });
+      discountValueEl.addEventListener('input', function(e) {
+        discountVal = parseFloat(this.value) || 0;
+        if (discountVal < 0) this.value = 0;
+        refreshAll();
+      });
+
+      // 4. Event fields
+      eventNameEl.addEventListener('input', function() { refreshAll(); });
+      venueEl.addEventListener('input', function() { refreshAll(); });
+      eventDateEl.addEventListener('change', function() { refreshAll(); });
+
+      // 5. PRINT button
+      printBtn.addEventListener('click', function() {
+        const printable = document.getElementById('printable');
+        // remove offscreen class to make it visible (but still absolute)
+        printable.classList.remove('printable-offscreen');
+        // trigger print
+        window.print();
+        // hide again
+        printable.classList.add('printable-offscreen');
+      });
+
+      // 6. PDF button (html2pdf.js) with quantity warning
+      pdfBtn.addEventListener('click', function() {
+        if (currentQty > 12) {
+          const confirmLarge = confirm('⚠️ Generating PDF with more than 12 tickets may produce a blank page due to canvas limits.\n\nContinue anyway? (If blank, use Print → Save as PDF)');
+          if (!confirmLarge) return;
+        }
+        const printableArea = document.getElementById('printable');
+        // temporarily make visible for capture
+        printableArea.classList.remove('printable-offscreen');
+        const opt = {
+          margin:        [0.2, 0.2, 0.2, 0.2], // small margins
+          filename:     `tickets-${getTodayStr()}.pdf`,
+          image:        { type: 'jpeg', quality: 0.98 },
+          html2canvas:  { scale: 2.2, letterRendering: true, useCORS: true, logging: false },
+          jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        html2pdf().from(printableArea).set(opt).save().then(() => {
+          // hide again
+          printableArea.classList.add('printable-offscreen');
+        }).catch(err => {
+          alert('PDF generation error. Use Print → Save as PDF.');
+          printableArea.classList.add('printable-offscreen');
+        });
+      });
+
+      // 7. CLEAR SESSION: reset counter + usedTickets (for verify) + demo ticket
+      clearSessionBtn.addEventListener('click', function() {
+        resetTodayCounter();
+        localStorage.setItem('usedTickets', JSON.stringify([]));
+        // reset to default demo
+        currentType = 'PRIME';
+        currentQty = 1;
+        discountType = 'none';
+        discountVal = 0;
+        discountTypeEl.value = 'none';
+        discountValueEl.value = 0;
+        discountValueEl.disabled = true;
+        eventNameEl.value = 'ANNUAL GALA';
+        venueEl.value = 'GRAND HALL';
+        eventDateEl.value = '2025-12-31';
+        refreshAll();
+      });
+
+      // -------------------- INIT: demo generation on load --------------------
+      function initialDemo() {
+        // ensure usedTickets array exists
+        if (!localStorage.getItem('usedTickets')) {
+          localStorage.setItem('usedTickets', JSON.stringify([]));
+        }
+        // generate 1 demo ticket
+        refreshAll();
+      }
+      initialDemo();
+    })();
+  </script>
+  <!-- Fallback note for large PDF (visible) -->
+  <div class="hidden">PDF warning: large quantities may fail – staff advised</div>
 </body>
 </html>
