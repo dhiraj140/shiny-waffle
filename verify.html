@@ -1,236 +1,197 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verify Ticket · Anti-Copy (LocalStorage)</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Inter', sans-serif;
-        }
-        body {
-            background: #eef2f5;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 2rem;
-        }
-        .verify-card {
-            background: white;
-            max-width: 550px;
-            width: 100%;
-            border-radius: 28px;
-            padding: 2.5rem 2rem;
-            box-shadow: 0 20px 30px rgba(0,0,0,0.05);
-            border: 1px solid #cbd9e0;
-        }
-        h2 {
-            color: #0d4352;
-            font-weight: 650;
-            font-size: 1.8rem;
-            margin-bottom: 0.4rem;
-        }
-        .sub {
-            color: #4b6f7c;
-            margin-bottom: 2rem;
-            font-size: 0.95rem;
-            border-bottom: 2px solid #1e7e8c;
-            padding-bottom: 0.8rem;
-        }
-        label {
-            font-weight: 600;
-            font-size: 0.9rem;
-            color: #1d5262;
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
-        }
-        .input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-bottom: 26px;
-        }
-        input {
-            padding: 14px 18px;
-            border-radius: 40px;
-            border: 1px solid #b5cbcf;
-            font-size: 1rem;
-            background: #fbfdfe;
-        }
-        input:focus {
-            border-color: #1f7e8c;
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(31,126,140,0.1);
-        }
-        .btn-verify, .btn-reset {
-            border: none;
-            padding: 14px 24px;
-            border-radius: 36px;
-            font-weight: 600;
-            font-size: 1rem;
-            cursor: pointer;
-            background: #1b6b7c;
-            color: white;
-            transition: 0.1s;
-        }
-        .btn-reset {
-            background: #c0cfd4;
-            color: #0d3a44;
-            margin-left: 12px;
-        }
-        .status-box {
-            background: #f2f6f9;
-            padding: 1.5rem;
-            border-radius: 20px;
-            margin-top: 28px;
-            border-left: 8px solid #4393a4;
-            word-break: break-word;
-        }
-        .used-warning {
-            color: #a13d2e;
-            font-weight: 700;
-            background: #ffeae6;
-            padding: 12px 16px;
-            border-radius: 40px;
-        }
-        .valid {
-            color: #166653;
-            background: #e1f2ec;
-            padding: 12px 16px;
-            border-radius: 40px;
-        }
-        .small-note {
-            margin-top: 20px;
-            font-size: 0.8rem;
-            color: #386977;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Ticket · Event</title>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    body {
+      background: #09090b;
+      color: #e4e4e7;
+      font-family: 'Inter', sans-serif;
+    }
+    .verify-card {
+      background: #18181b;
+      border: 1px solid #3f3f46;
+      border-radius: 1.5rem;
+      box-shadow: 0 20px 35px -10px rgba(0,0,0,0.5);
+    }
+    .badge-valid {
+      background: #059669;
+      color: white;
+    }
+    .badge-used {
+      background: #b91c1c;
+      color: white;
+    }
+  </style>
 </head>
-<body>
-    <div class="verify-card">
-        <h2>🎟️ Entry Verification</h2>
-        <div class="sub">staff handheld · anti‑copy localStorage</div>
+<body class="flex items-center justify-center min-h-screen p-4">
+  <div class="verify-card w-full max-w-xl p-8">
+    <!-- Header -->
+    <div class="flex items-center gap-3 mb-6">
+      <i class="fas fa-qrcode text-3xl text-blue-400"></i>
+      <h1 class="font-['Playfair_Display'] text-3xl font-black text-white">Ticket Verify</h1>
+    </div>
+    <p class="text-zinc-400 text-sm mb-6">Scan QR or enter Ticket ID manually. Mark as used on first scan.</p>
 
-        <div class="input-group">
-            <label for="ticketIdInput">🔍 Scan / Enter Ticket ID</label>
-            <input type="text" id="ticketIdInput" placeholder="e.g. TCK2026-124701" autocomplete="off">
-        </div>
-        <div>
-            <button id="verifyBtn" class="btn-verify">✔ VERIFY & MARK USED</button>
-            <button id="resetBtn" class="btn-reset">⟲ RESET ALL</button>
-        </div>
-
-        <!-- Status display -->
-        <div id="statusPanel" class="status-box">
-            <span style="font-weight:600;">🔄 Ready</span><br>
-            <span id="statusMessage">Enter a ticket ID and click verify</span>
-        </div>
-        <div id="usedList" style="margin-top:1rem; font-size:0.85rem; color:#2c5f6e;"></div>
-        <div class="small-note">
-            ⚡ First scan = valid & stored. Second scan = ALREADY USED.<br>
-            Uses localStorage "usedTickets". Reset clears all.
-        </div>
+    <!-- Input area -->
+    <div class="flex flex-col md:flex-row gap-3 mb-6">
+      <input id="ticketIdInput" type="text" placeholder="e.g. TCK20251231-0001" class="input-dark w-full bg-zinc-900 border border-zinc-700 rounded-xl px-5 py-4 text-white focus:ring-2 focus:ring-blue-600 outline-none">
+      <button id="verifyBtn" class="bg-blue-700 hover:bg-blue-800 text-white font-bold px-6 py-4 rounded-xl flex items-center justify-center gap-2 transition">
+        <i class="fas fa-check-circle"></i> Verify
+      </button>
     </div>
 
-    <script>
-        (function() {
-            // localStorage key
-            const STORAGE_KEY = 'usedTickets';
-            
-            // initialize used set from localStorage
-            let usedSet = new Set();
-            function loadUsed() {
-                try {
-                    const stored = localStorage.getItem(STORAGE_KEY);
-                    if (stored) {
-                        const arr = JSON.parse(stored);
-                        usedSet = new Set(arr);
-                    } else {
-                        usedSet = new Set();
-                    }
-                } catch (e) {
-                    usedSet = new Set();
-                }
-                updateUsedList();
-            }
-            function saveUsed() {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify([...usedSet]));
-                updateUsedList();
-            }
-            function updateUsedList() {
-                const listEl = document.getElementById('usedList');
-                if (usedSet.size === 0) {
-                    listEl.innerHTML = '📭 No used tickets in storage.';
-                } else {
-                    const arr = [...usedSet].slice(-6); // show last 6
-                    listEl.innerHTML = '🗂️ Recently used: ' + arr.join(', ') + (usedSet.size > 6 ? ' …' : '');
-                }
-            }
+    <!-- Simulate QR scan (demo) -->
+    <div class="flex justify-between items-center mb-5 text-xs text-zinc-500">
+      <span><i class="fas fa-camera"></i> QR simulation</span>
+      <button id="simulateQrBtn" class="text-emerald-400 hover:text-emerald-300 underline underline-offset-2">Paste demo ID</button>
+    </div>
 
-            // UI elements
-            const ticketInput = document.getElementById('ticketIdInput');
-            const verifyBtn = document.getElementById('verifyBtn');
-            const resetBtn = document.getElementById('resetBtn');
-            const statusMsg = document.getElementById('statusMessage');
+    <!-- Result panel -->
+    <div id="resultPanel" class="hidden p-5 rounded-xl mb-5 text-white font-bold text-center text-lg transition-all"></div>
 
-            function setStatus(message, isValid) {
-                const panel = document.getElementById('statusPanel');
-                if (isValid === true) {
-                    statusMsg.innerHTML = '✅ ' + message;
-                    panel.style.borderLeftColor = '#1e8a6e';
-                } else if (isValid === false) {
-                    statusMsg.innerHTML = '❌ ' + message;
-                    panel.style.borderLeftColor = '#b3412a';
-                } else {
-                    statusMsg.innerHTML = message;
-                    panel.style.borderLeftColor = '#4393a4';
-                }
-            }
+    <!-- Used tickets list (compact) -->
+    <div class="mt-8 border-t border-zinc-800 pt-5">
+      <div class="flex items-center justify-between">
+        <h2 class="font-['Playfair_Display'] text-lg font-bold text-white"><i class="fas fa-history mr-2"></i>Used tickets today</h2>
+        <button id="clearUsedBtn" class="text-xs bg-zinc-800 hover:bg-zinc-700 px-3 py-1.5 rounded-lg text-zinc-300 transition">Clear all</button>
+      </div>
+      <div id="usedList" class="mt-3 max-h-64 overflow-y-auto text-sm space-y-1.5 font-mono">
+        <!-- dynamic list -->
+      </div>
+    </div>
+  </div>
 
-            // VERIFY
-            function verifyAndMark() {
-                const rawId = ticketInput.value.trim();
-                if (!rawId) {
-                    setStatus('Please enter a Ticket ID', false);
-                    return;
-                }
+  <script>
+    (function() {
+      const STORAGE_KEY = 'usedTickets';
 
-                if (usedSet.has(rawId)) {
-                    setStatus(`ALREADY USED · Ticket ${rawId} was scanned before.`, false);
-                } else {
-                    // first time: mark as used
-                    usedSet.add(rawId);
-                    saveUsed();
-                    setStatus(`✅ VALID · Ticket ${rawId} is now marked as USED.`, true);
-                }
-                updateUsedList();
-            }
+      // ---------- HELPER: get used array ----------
+      function getUsedTickets() {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        return stored ? JSON.parse(stored) : [];
+      }
 
-            // RESET all used tickets
-            function resetAll() {
-                if (confirm('Reset ALL used tickets? This cannot be undone.')) {
-                    usedSet.clear();
-                    saveUsed();
-                    setStatus('🔄 All used tickets cleared.', null);
-                    ticketInput.value = '';
-                }
-            }
+      function saveUsedTickets(arr) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+      }
 
-            verifyBtn.addEventListener('click', verifyAndMark);
-            resetBtn.addEventListener('click', resetAll);
-            
-            // load on start
-            loadUsed();
+      // ---------- RENDER USED LIST ----------
+      function renderUsedList() {
+        const used = getUsedTickets();
+        const container = document.getElementById('usedList');
+        container.innerHTML = '';
+        if (used.length === 0) {
+          container.innerHTML = '<span class="text-zinc-600 italic">No tickets used yet.</span>';
+          return;
+        }
+        used.slice(-10).reverse().forEach(id => { // show last 10, newest first
+          const div = document.createElement('div');
+          div.className = 'bg-zinc-900/60 px-3 py-2 rounded-lg text-zinc-300 border-l-4 border-red-600';
+          div.innerHTML = `<i class="fas fa-ban text-red-500 mr-2 text-xs"></i>${id}`;
+          container.appendChild(div);
+        });
+        if (used.length > 10) {
+          const extra = document.createElement('div');
+          extra.className = 'text-xs text-zinc-600 mt-1';
+          extra.textContent = `+${used.length - 10} more`;
+          container.appendChild(extra);
+        }
+      }
 
-            // also allow Enter key
-            ticketInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') verifyAndMark();
-            });
-        })();
-    </script>
+      // ---------- VERIFY LOGIC ----------
+      function verifyTicket(id) {
+        const trimmed = id.trim();
+        if (!trimmed) {
+          showResult('Please enter a Ticket ID', false, 'missing');
+          return;
+        }
+
+        const used = getUsedTickets();
+        if (used.includes(trimmed)) {
+          showResult(`❌ ALREADY USED · ${trimmed}`, false, 'used');
+        } else {
+          // mark as used
+          used.push(trimmed);
+          saveUsedTickets(used);
+          showResult(`✅ VALID ENTRY · ${trimmed}`, true, 'valid');
+          renderUsedList();
+        }
+      }
+
+      function showResult(message, isValid, type) {
+        const panel = document.getElementById('resultPanel');
+        panel.classList.remove('hidden', 'badge-valid', 'badge-used', 'bg-red-600', 'bg-emerald-700');
+        panel.textContent = message;
+        if (isValid) {
+          panel.classList.add('badge-valid', 'bg-emerald-700');
+        } else {
+          panel.classList.add('badge-used', 'bg-red-600');
+        }
+        panel.classList.remove('hidden');
+      }
+
+      // ---------- EVENT LISTENERS ----------
+      document.getElementById('verifyBtn').addEventListener('click', function() {
+        const input = document.getElementById('ticketIdInput');
+        verifyTicket(input.value);
+      });
+
+      document.getElementById('ticketIdInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          document.getElementById('verifyBtn').click();
+        }
+      });
+
+      // Simulate QR scan: fill with a demo ID (from today's demo ticket)
+      document.getElementById('simulateQrBtn').addEventListener('click', function() {
+        // generate a plausible demo ID: today's date + 0001 (if counter exists)
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,'0')}${String(today.getDate()).padStart(2,'0')}`;
+        const demoId = `TCK${todayStr}-0001`;
+        document.getElementById('ticketIdInput').value = demoId;
+      });
+
+      // Clear used tickets
+      document.getElementById('clearUsedBtn').addEventListener('click', function() {
+        if (confirm('Clear entire used tickets history?')) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+          renderUsedList();
+          document.getElementById('resultPanel').classList.add('hidden');
+        }
+      });
+
+      // initial render
+      renderUsedList();
+
+      // also listen to storage changes (if multiple tabs)
+      window.addEventListener('storage', function(e) {
+        if (e.key === STORAGE_KEY) {
+          renderUsedList();
+        }
+      });
+    })();
+  </script>
+
+  <style>
+    .input-dark {
+      background: #18181b;
+      border: 1px solid #3f3f46;
+      color: white;
+    }
+    .input-dark:focus {
+      border-color: #3b82f6;
+      outline: none;
+      ring: 2px solid #3b82f6;
+    }
+  </style>
 </body>
 </html>
