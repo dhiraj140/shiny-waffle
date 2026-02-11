@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff · Event Ticket Printing System</title>
+    <!-- open-source libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- professional desktop styles -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main class="staff-panel">
+        <header>
+            <h1>🎟️ EVENT COUNTER · TICKET STATION</h1>
+            <p class="subhead">staff use only — instant print & PDF</p>
+        </header>
+
+        <!-- CONTROLS (hidden during print) -->
+        <div class="controls no-print">
+            <div class="form-row">
+                <div class="field-group">
+                    <label for="ticketType">🎫 Ticket type</label>
+                    <select id="ticketType" class="input-select">
+                        <option value="PRIME" data-price="15000">PRIME — ₹15,000</option>
+                        <option value="PLUS" data-price="11000">PLUS — ₹11,000</option>
+                        <option value="ECONO" data-price="2500">ECONO — ₹2,500</option>
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label for="basePrice">💰 Base price (₹)</label>
+                    <input type="text" id="basePrice" readonly class="input-readonly" value="15000">
+                </div>
+                <div class="field-group">
+                    <label for="quantity">🔢 Quantity</label>
+                    <select id="quantity" class="input-select">
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="10">10</option>
+                        <option value="20">20</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row discount-row">
+                <div class="field-group">
+                    <label for="discountType">🏷️ Discount type</label>
+                    <select id="discountType" class="input-select">
+                        <option value="none" selected>No discount</option>
+                        <option value="flat">Flat Amount (₹)</option>
+                        <option value="percent">Percentage (%)</option>
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label for="discountValue">🎁 Discount value</label>
+                    <input type="number" id="discountValue" class="input-text" value="0" min="0" step="1" disabled>
+                </div>
+                <div class="field-group">
+                    <label>&nbsp;</label>
+                    <button id="generateBtn" class="btn-primary">⚡ GENERATE TICKETS</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PRICE SUMMARY (live update) -->
+        <div class="summary-card no-print">
+            <h3>🧾 ORDER SUMMARY</h3>
+            <div class="summary-grid">
+                <span>Ticket type:</span><span id="summaryType">PRIME</span>
+                <span>Base price:</span><span id="summaryBase">₹15,000</span>
+                <span>Quantity:</span><span id="summaryQty">1</span>
+                <span>Subtotal:</span><span id="summarySubtotal">₹15,000</span>
+                <span>Discount:</span><span id="summaryDiscount">₹0</span>
+                <span class="total-label">FINAL PAYABLE:</span><span id="summaryFinal" class="total-amount">₹15,000</span>
+            </div>
+        </div>
+
+        <!-- ACTION BUTTONS (print / pdf) -->
+        <div class="action-bar no-print">
+            <button id="printBtn" class="btn-print">🖨️ PRINT ALL TICKETS</button>
+            <button id="pdfBtn" class="btn-pdf">📄 SAVE AS PDF (ALL-IN-ONE)</button>
+            <button id="clearBtn" class="btn-clear">🗑️ CLEAR TICKETS</button>
+        </div>
+
+        <!-- TICKETS CONTAINER → injected dynamically -->
+        <div id="ticketsContainer" class="tickets-container"></div>
+
+        <footer class="no-print">
+            <p class="footer-note">🔒 anti-copy ready · verify at <code>verify.html</code> · localStorage used</p>
+        </footer>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
